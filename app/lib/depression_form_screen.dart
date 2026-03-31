@@ -4,9 +4,6 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-
-
-
 class DepressionForm extends StatefulWidget {
   @override
   _DepressionFormState createState() => _DepressionFormState();
@@ -19,17 +16,17 @@ class _DepressionFormState extends State<DepressionForm>
   late Animation<double> _fadeAnimation;
 
   int? gender;
-  double? age;
-  int? profession = 11; // Sabit: Öğrenci
-  double? academicPressure;
-  double? cgpa;
-  double? studySatisfaction;
+  double age = 20;
+  int? profession = 11;
+  double academicPressure = 3;
+  double cgpa = 7;
+  double studySatisfaction = 3;
   int? sleepDuration;
   int? dietaryHabits;
   int? degree;
   int? suicidalThoughts;
-  double? workStudyHours;
-  double? financialStress;
+  double workStudyHours = 6;
+  double financialStress = 3;
   int? familyHistory;
 
   String? result;
@@ -39,16 +36,12 @@ class _DepressionFormState extends State<DepressionForm>
   void initState() {
     super.initState();
     _animationController = AnimationController(
-      duration: Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 1500),
       vsync: this,
     );
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
   }
 
   @override
@@ -58,101 +51,121 @@ class _DepressionFormState extends State<DepressionForm>
   }
 
   Future<void> _submit() async {
-  if (!_formKey.currentState!.validate()) return;
-  _formKey.currentState!.save();
+    if (!_formKey.currentState!.validate()) return;
+    if (gender == null || sleepDuration == null || dietaryHabits == null ||
+        degree == null || suicidalThoughts == null || familyHistory == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Lütfen tüm alanları doldurun.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
 
-  setState(() {
-    isLoading = true;
-    result = null;
-  });
+    setState(() {
+      isLoading = true;
+      result = null;
+    });
 
-  final body = jsonEncode({
-    "Gender": gender,
-    "Age": age,
-    "Profession": profession,
-    "Academic_Pressure": academicPressure,
-    "CGPA": cgpa,
-    "Study_Satisfaction": studySatisfaction,
-    "Sleep_Duration": sleepDuration,
-    "Dietary_Habits": dietaryHabits,
-    "Degree": degree,
-    "Suicidal_Thoughts": suicidalThoughts,
-    "Work_Study_Hours": workStudyHours,
-    "Financial_Stress": financialStress,
-    "Family_History": familyHistory
-  });
+    final body = jsonEncode({
+      "Gender": gender,
+      "Age": age,
+      "Profession": profession,
+      "Academic_Pressure": academicPressure,
+      "CGPA": cgpa,
+      "Study_Satisfaction": studySatisfaction,
+      "Sleep_Duration": sleepDuration,
+      "Dietary_Habits": dietaryHabits,
+      "Degree": degree,
+      "Suicidal_Thoughts": suicidalThoughts,
+      "Work_Study_Hours": workStudyHours,
+      "Financial_Stress": financialStress,
+      "Family_History": familyHistory,
+    });
 
-  try {
-    final uri = Uri.parse("http://192.168.0.18:8000/predict");
-    final response = await http.post(
-      uri,
-      headers: {'Content-Type': 'application/json'},
-      body: body,
-    );
+    try {
+      final uri = Uri.parse("http://192.168.0.18:8000/predict");
+      final response = await http
+          .post(uri, headers: {'Content-Type': 'application/json'}, body: body)
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => http.Response('{"error":"timeout"}', 408),
+          );
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      setState(() {
-        result = data['recommendations'] ?? 'Öneri alınamadı.';
-        isLoading = false;
-      });
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          result = data['recommendations'] ?? 'Öneri alınamadı.';
+          isLoading = false;
+        });
 
-      // ✅ Kullanıcıyı al
-      final user = FirebaseAuth.instance.currentUser;
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          await FirebaseFirestore.instance
+              .collection('depression_responses')
+              .add({
+            'uid': user.uid,
+            'gender': gender,
+            'age': age,
+            'profession': profession,
+            'academicPressure': academicPressure,
+            'cgpa': cgpa,
+            'studySatisfaction': studySatisfaction,
+            'sleepDuration': sleepDuration,
+            'dietaryHabits': dietaryHabits,
+            'degree': degree,
+            'suicidalThoughts': suicidalThoughts,
+            'workStudyHours': workStudyHours,
+            'financialStress': financialStress,
+            'familyHistory': familyHistory,
+            'prediction': data['result'],
+            'recommendations': data['recommendations'],
+            'timestamp': DateTime.now(),
+          });
+        }
 
-      if (user != null) {
-        await FirebaseFirestore.instance.collection('depression_responses').add({
-          'uid': user.uid,
-          'gender': gender,
-          'age': age,
-          'profession': profession,
-          'academicPressure': academicPressure,
-          'cgpa': cgpa,
-          'studySatisfaction': studySatisfaction,
-          'sleepDuration': sleepDuration,
-          'dietaryHabits': dietaryHabits,
-          'degree': degree,
-          'suicidalThoughts': suicidalThoughts,
-          'workStudyHours': workStudyHours,
-          'financialStress': financialStress,
-          'familyHistory': familyHistory,
-          'prediction': data['result'],
-          'recommendations': data['recommendations'],
-          'timestamp': DateTime.now(),
+        _animationController.forward();
+        _showResultDialog(data);
+      } else if (response.statusCode == 408) {
+        setState(() { isLoading = false; });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Sunucuya bağlanılamadı. API sunucusunun çalıştığından emin olun.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } else {
+        setState(() {
+          result = "Sunucu hatası: ${response.statusCode}";
+          isLoading = false;
         });
       }
-
-      _animationController.forward();
-      _showResultDialog(data);
-    } else {
+    } catch (e) {
       setState(() {
-        result = "Sunucu hatası: ${response.statusCode}";
+        result = "Bağlantı hatası: $e";
         isLoading = false;
       });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Bağlantı hatası. API sunucusunu kontrol edin.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
-  } catch (e) {
-    setState(() {
-      result = "Bağlantı hatası: $e";
-      isLoading = false;
-    });
   }
-}
-
 
   void _showResultDialog(Map<String, dynamic> data) {
     final isDepressed = data['result'] == 'Depressed';
-
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
         return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           elevation: 16,
           child: Container(
-            constraints: BoxConstraints(maxHeight: 600),
+            constraints: const BoxConstraints(maxHeight: 600),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(24),
               gradient: LinearGradient(
@@ -164,18 +177,16 @@ class _DepressionFormState extends State<DepressionForm>
               ),
             ),
             child: SingleChildScrollView(
-              padding: EdgeInsets.all(24),
+              padding: const EdgeInsets.all(24),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Sonuç İkonu
                   Container(
                     width: 80,
                     height: 80,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color:
-                          isDepressed ? Colors.orange[100] : Colors.green[100],
+                      color: isDepressed ? Colors.orange[100] : Colors.green[100],
                       boxShadow: [
                         BoxShadow(
                           color: (isDepressed ? Colors.orange : Colors.green)
@@ -188,44 +199,33 @@ class _DepressionFormState extends State<DepressionForm>
                     child: Icon(
                       isDepressed ? Icons.psychology_outlined : Icons.mood,
                       size: 40,
-                      color:
-                          isDepressed ? Colors.orange[700] : Colors.green[700],
+                      color: isDepressed ? Colors.orange[700] : Colors.green[700],
                     ),
                   ),
-                  SizedBox(height: 16),
-
-                  // Başlık
+                  const SizedBox(height: 16),
                   Text(
                     isDepressed ? "Dikkat Gerekiyor" : "Harika Durumdasın!",
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
-                      color:
-                          isDepressed ? Colors.orange[800] : Colors.green[800],
+                      color: isDepressed ? Colors.orange[800] : Colors.green[800],
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  SizedBox(height: 8),
-
-                  // Alt Başlık
+                  const SizedBox(height: 8),
                   Text(
                     isDepressed
                         ? "Seninle birlikte bu durumu aşacağız"
                         : "Ruh sağlığın için bu önerileri takip et",
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                     textAlign: TextAlign.center,
                   ),
-                  SizedBox(height: 24),
-
-                  // Öneriler
+                  const SizedBox(height: 24),
                   Container(
                     width: double.infinity,
-                    padding: EdgeInsets.all(20),
+                    padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: _cardColor,
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
@@ -247,9 +247,7 @@ class _DepressionFormState extends State<DepressionForm>
                       ),
                     ),
                   ),
-                  SizedBox(height: 24),
-
-                  // Butonlar
+                  const SizedBox(height: 24),
                   Row(
                     children: [
                       Expanded(
@@ -259,13 +257,13 @@ class _DepressionFormState extends State<DepressionForm>
                             _animationController.reset();
                           },
                           style: OutlinedButton.styleFrom(
-                            padding: EdgeInsets.symmetric(vertical: 16),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
+                                borderRadius: BorderRadius.circular(12)),
                             side: BorderSide(
-                              color: isDepressed ? Colors.orange : Colors.green,
-                            ),
+                                color: isDepressed
+                                    ? Colors.orange
+                                    : Colors.green),
                           ),
                           child: Text(
                             "Kapat",
@@ -278,7 +276,7 @@ class _DepressionFormState extends State<DepressionForm>
                           ),
                         ),
                       ),
-                      SizedBox(width: 12),
+                      const SizedBox(width: 12),
                       Expanded(
                         child: ElevatedButton(
                           onPressed: () {
@@ -288,18 +286,16 @@ class _DepressionFormState extends State<DepressionForm>
                           style: ElevatedButton.styleFrom(
                             backgroundColor:
                                 isDepressed ? Colors.orange : Colors.green,
-                            padding: EdgeInsets.symmetric(vertical: 16),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
+                                borderRadius: BorderRadius.circular(12)),
                             elevation: 4,
                           ),
-                          child: Text(
+                          child: const Text(
                             "Yeni Test",
                             style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                            ),
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600),
                           ),
                         ),
                       ),
@@ -317,62 +313,197 @@ class _DepressionFormState extends State<DepressionForm>
   void _resetForm() {
     setState(() {
       gender = null;
-      age = null;
-      profession = 11; // Sabit: Öğrenci
-      academicPressure = null;
-      cgpa = null;
-      studySatisfaction = null;
+      age = 20;
+      academicPressure = 3;
+      cgpa = 7;
+      studySatisfaction = 3;
       sleepDuration = null;
       dietaryHabits = null;
       degree = null;
       suicidalThoughts = null;
-      workStudyHours = null;
-      financialStress = null;
+      workStudyHours = 6;
+      financialStress = 3;
       familyHistory = null;
       result = null;
     });
-    _formKey.currentState?.reset();
     _animationController.reset();
   }
 
-  Widget _buildDropdown<T>(String label, T? value,
-      List<DropdownMenuItem<T>> items, void Function(T?) onChanged) {
-    return Container(
-      margin: EdgeInsets.symmetric(vertical: 8.0),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            spreadRadius: 1,
-          ),
-        ],
+  Color get _cardColor => Theme.of(context).cardColor;
+  Color get _bgColor => Theme.of(context).scaffoldBackgroundColor;
+
+  // Modern bottom sheet seçici
+  Future<void> _showSelector<T>({
+    required String title,
+    required List<Map<String, dynamic>> options,
+    required T? currentValue,
+    required void Function(T) onSelected,
+  }) async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: DropdownButtonFormField<T>(
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: TextStyle(color: Colors.grey[600]),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
+      builder: (context) {
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.5,
+          maxChildSize: 0.85,
+          builder: (context, scrollController) {
+            return Column(
+              children: [
+                const SizedBox(height: 12),
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const Divider(height: 1),
+                Expanded(
+                  child: ListView.builder(
+                    controller: scrollController,
+                    itemCount: options.length,
+                    itemBuilder: (context, index) {
+                      final option = options[index];
+                      final isSelected = currentValue == option['value'];
+                      return ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 4),
+                        leading: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? Colors.indigo
+                                : Colors.indigo.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            option['icon'] as IconData? ?? Icons.circle,
+                            color:
+                                isSelected ? Colors.white : Colors.indigo,
+                            size: 22,
+                          ),
+                        ),
+                        title: Text(
+                          option['label'] as String,
+                          style: TextStyle(
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                            color: isSelected ? Colors.indigo : null,
+                          ),
+                        ),
+                        trailing: isSelected
+                            ? const Icon(Icons.check_circle,
+                                color: Colors.indigo)
+                            : null,
+                        onTap: () {
+                          onSelected(option['value'] as T);
+                          Navigator.pop(context);
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // Modern seçici butonu
+  Widget _buildSelector({
+    required String label,
+    required String? selectedLabel,
+    required VoidCallback onTap,
+    bool hasError = false,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        decoration: BoxDecoration(
+          color: _cardColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: hasError ? Colors.red : Colors.transparent,
+            width: 1.5,
           ),
-          filled: true,
-          fillColor: Colors.white,
-          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+              spreadRadius: 1,
+            ),
+          ],
         ),
-        value: value,
-        items: items,
-        onChanged: onChanged,
-        validator: (val) => val == null ? 'Lütfen seçim yapın' : null,
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[500],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    selectedLabel ?? 'Seçiniz...',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: selectedLabel != null
+                          ? Colors.black87
+                          : Colors.grey[400],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.keyboard_arrow_down_rounded,
+                color: Colors.grey[500]),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildNumberInput(String label, void Function(String?) onSaved) {
+  Widget _buildSliderWidget({
+    required String label,
+    required double value,
+    required double min,
+    required double max,
+    required int divisions,
+    required String Function(double) display,
+    required void Function(double) onChanged,
+  }) {
     return Container(
-      margin: EdgeInsets.symmetric(vertical: 8.0),
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
+        color: _cardColor,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
@@ -382,41 +513,122 @@ class _DepressionFormState extends State<DepressionForm>
           ),
         ],
       ),
-      child: TextFormField(
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: TextStyle(color: Colors.grey[600]),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.indigo,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  display(value),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ],
           ),
-          filled: true,
-          fillColor: Colors.white,
-          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        ),
-        keyboardType: TextInputType.number,
-        validator: (val) =>
-            val == null || val.isEmpty ? 'Boş bırakılamaz' : null,
-        onSaved: onSaved,
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              activeTrackColor: Colors.indigo,
+              inactiveTrackColor: Colors.indigo.withOpacity(0.15),
+              thumbColor: Colors.indigo,
+              overlayColor: Colors.indigo.withOpacity(0.1),
+              trackHeight: 4,
+            ),
+            child: Slider(
+              value: value,
+              min: min,
+              max: max,
+              divisions: divisions,
+              onChanged: onChanged,
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('${min.toInt()}',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[400])),
+              Text('${max.toInt()}',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[400])),
+            ],
+          ),
+        ],
       ),
     );
   }
+
+  String? _genderLabel() => gender == null
+      ? null
+      : gender == 0
+          ? 'Kadın'
+          : 'Erkek';
+
+  String? _sleepLabel() {
+    const labels = ['5-6 saat', '7-8 saat', '5 saatten az', '8 saatten fazla', 'Diğer'];
+    return sleepDuration == null ? null : labels[sleepDuration!];
+  }
+
+  String? _dietLabel() {
+    const labels = ['Sağlıklı', 'Orta', 'Diğer', 'Sağlıksız'];
+    return dietaryHabits == null ? null : labels[dietaryHabits!];
+  }
+
+  String? _degreeLabel() {
+    const labels = [
+      'B.Arch (Mimarlık)', 'B.Com (Ticaret)', 'B.Ed (Eğitim)',
+      'B.Pharm (Eczacılık)', 'B.Tech (Mühendislik)', 'BA (Sanat)',
+      'BBA (İşletme)', 'BCA (Bilgisayar)', 'BE (Mühendislik)',
+      'BHM (Otelcilik)', 'BSc (Fen Bilimleri)', 'Lise Mezunu',
+      'LLB (Hukuk)', 'LLM (Y.L. Hukuk)', 'M.Com', 'M.Ed',
+      'M.Pharm', 'M.Tech', 'MA', 'MBA', 'MBBS (Tıp)', 'MCA',
+      'MD (Tıp Doktoru)', 'ME', 'MHM', 'MSc', 'Diğer', 'PhD (Doktora)',
+    ];
+    return degree == null ? null : labels[degree!];
+  }
+
+  String? _suicidalLabel() => suicidalThoughts == null
+      ? null
+      : suicidalThoughts == 0
+          ? 'Hayır'
+          : 'Evet';
+
+  String? _familyLabel() => familyHistory == null
+      ? null
+      : familyHistory == 0
+          ? 'Hayır'
+          : 'Evet';
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(
+        title: const Text(
           "Ruh Sağlığı Analizi",
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
-          ),
+          style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white),
         ),
         backgroundColor: Colors.indigo,
         elevation: 0,
         centerTitle: true,
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -425,14 +637,13 @@ class _DepressionFormState extends State<DepressionForm>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Başlık Kartı
+              // Başlık kartı
               Container(
-                padding: EdgeInsets.all(20),
-                margin: EdgeInsets.only(bottom: 20),
+                padding: const EdgeInsets.all(20),
+                margin: const EdgeInsets.only(bottom: 20),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.indigo, Colors.blue],
-                  ),
+                  gradient:
+                      const LinearGradient(colors: [Colors.indigo, Colors.blue]),
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
@@ -442,13 +653,9 @@ class _DepressionFormState extends State<DepressionForm>
                     ),
                   ],
                 ),
-                child: Column(
+                child: const Column(
                   children: [
-                    Icon(
-                      Icons.psychology,
-                      size: 48,
-                      color: Colors.white,
-                    ),
+                    Icon(Icons.psychology, size: 48, color: Colors.white),
                     SizedBox(height: 12),
                     Text(
                       "Ruh Sağlığın Önemli",
@@ -462,133 +669,199 @@ class _DepressionFormState extends State<DepressionForm>
                     Text(
                       "Lütfen soruları dürüstçe yanıtlayın",
                       style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.white.withOpacity(0.9),
-                      ),
+                          fontSize: 16,
+                          color: Colors.white70),
                     ),
                   ],
                 ),
               ),
 
-              // Form Alanları
-              _buildDropdown(
-                "Cinsiyet",
-                gender,
-                [
-                  DropdownMenuItem(value: 0, child: Text("Kadın")),
-                  DropdownMenuItem(value: 1, child: Text("Erkek")),
-                ],
-                (val) => setState(() => gender = val),
-              ),
-              _buildNumberInput(
-                  "Yaş", (val) => age = double.tryParse(val ?? '')),
-              _buildDropdown(
-                "Uyku Süresi",
-                sleepDuration,
-                [
-                  DropdownMenuItem(value: 0, child: Text("5-6 saat")),
-                  DropdownMenuItem(value: 1, child: Text("7-8 saat")),
-                  DropdownMenuItem(value: 2, child: Text("5 saatten az")),
-                  DropdownMenuItem(value: 3, child: Text("8 saatten fazla")),
-                  DropdownMenuItem(value: 4, child: Text("Diğer")),
-                ],
-                (val) => setState(() => sleepDuration = val),
-              ),
-              _buildDropdown(
-                "Beslenme Alışkanlığı",
-                dietaryHabits,
-                [
-                  DropdownMenuItem(value: 0, child: Text("Sağlıklı")),
-                  DropdownMenuItem(value: 1, child: Text("Orta")),
-                  DropdownMenuItem(value: 2, child: Text("Diğer")),
-                  DropdownMenuItem(value: 3, child: Text("Sağlıksız")),
-                ],
-                (val) => setState(() => dietaryHabits = val),
-              ),
-              _buildDropdown(
-                "Eğitim Seviyesi",
-                degree,
-                [
-                  DropdownMenuItem(value: 0, child: Text("B.Arch (Mimarlık)")),
-                  DropdownMenuItem(value: 1, child: Text("B.Com (Ticaret)")),
-                  DropdownMenuItem(value: 2, child: Text("B.Ed (Eğitim)")),
-                  DropdownMenuItem(
-                      value: 3, child: Text("B.Pharm (Eczacılık)")),
-                  DropdownMenuItem(
-                      value: 4, child: Text("B.Tech (Mühendislik)")),
-                  DropdownMenuItem(value: 5, child: Text("BA (Sanat)")),
-                  DropdownMenuItem(value: 6, child: Text("BBA (İşletme)")),
-                  DropdownMenuItem(value: 7, child: Text("BCA (Bilgisayar)")),
-                  DropdownMenuItem(value: 8, child: Text("BE (Mühendislik)")),
-                  DropdownMenuItem(value: 9, child: Text("BHM (Otelcilik)")),
-                  DropdownMenuItem(
-                      value: 10, child: Text("BSc (Fen Bilimleri)")),
-                  DropdownMenuItem(value: 11, child: Text("Lise Mezunu")),
-                  DropdownMenuItem(value: 12, child: Text("LLB (Hukuk)")),
-                  DropdownMenuItem(value: 13, child: Text("LLM (Y.L. Hukuk)")),
-                  DropdownMenuItem(
-                      value: 14, child: Text("M.Com (Y.L. Ticaret)")),
-                  DropdownMenuItem(
-                      value: 15, child: Text("M.Ed (Y.L. Eğitim)")),
-                  DropdownMenuItem(
-                      value: 16, child: Text("M.Pharm (Y.L. Eczacılık)")),
-                  DropdownMenuItem(
-                      value: 17, child: Text("M.Tech (Y.L. Mühendislik)")),
-                  DropdownMenuItem(value: 18, child: Text("MA (Y.L. Sanat)")),
-                  DropdownMenuItem(value: 19, child: Text("MBA")),
-                  DropdownMenuItem(value: 20, child: Text("MBBS (Tıp)")),
-                  DropdownMenuItem(
-                      value: 21, child: Text("MCA (Y.L. Bilgisayar)")),
-                  DropdownMenuItem(value: 22, child: Text("MD (Tıp Doktoru)")),
-                  DropdownMenuItem(
-                      value: 23, child: Text("ME (Y.L. Mühendislik)")),
-                  DropdownMenuItem(
-                      value: 24, child: Text("MHM (Y.L. Otelcilik)")),
-                  DropdownMenuItem(
-                      value: 25, child: Text("MSc (Y.L. Fen Bilimleri)")),
-                  DropdownMenuItem(value: 26, child: Text("Diğer")),
-                  DropdownMenuItem(value: 27, child: Text("PhD (Doktora)")),
-                ],
-                (val) => setState(() => degree = val),
-              ),
-              _buildDropdown(
-                "İntihar Düşüncesi",
-                suicidalThoughts,
-                [
-                  DropdownMenuItem(value: 0, child: Text("Hayır")),
-                  DropdownMenuItem(value: 1, child: Text("Evet")),
-                ],
-                (val) => setState(() => suicidalThoughts = val),
-              ),
-              _buildNumberInput("Akademik Baskı (1-5)",
-                  (val) => academicPressure = double.tryParse(val ?? '')),
-              _buildNumberInput(
-                  "CGPA (0-10)", (val) => cgpa = double.tryParse(val ?? '')),
-              _buildNumberInput("Öğrenim Memnuniyeti (1-5)",
-                  (val) => studySatisfaction = double.tryParse(val ?? '')),
-              _buildNumberInput("Çalışma / Ders Saati",
-                  (val) => workStudyHours = double.tryParse(val ?? '')),
-              _buildNumberInput("Finansal Stres (1-5)",
-                  (val) => financialStress = double.tryParse(val ?? '')),
-              _buildDropdown(
-                "Ailede Ruhsal Hastalık Geçmişi",
-                familyHistory,
-                [
-                  DropdownMenuItem(value: 0, child: Text("Hayır")),
-                  DropdownMenuItem(value: 1, child: Text("Evet")),
-                ],
-                (val) => setState(() => familyHistory = val),
+              // Cinsiyet
+              _buildSelector(
+                label: 'Cinsiyet',
+                selectedLabel: _genderLabel(),
+                onTap: () => _showSelector<int>(
+                  title: 'Cinsiyet',
+                  currentValue: gender,
+                  options: [
+                    {'value': 0, 'label': 'Kadın', 'icon': Icons.female},
+                    {'value': 1, 'label': 'Erkek', 'icon': Icons.male},
+                  ],
+                  onSelected: (val) => setState(() => gender = val),
+                ),
               ),
 
-              SizedBox(height: 30),
+              // Yaş slider
+              _buildSliderWidget(
+                label: 'Yaş',
+                value: age,
+                min: 15,
+                max: 60,
+                divisions: 45,
+                display: (v) => '${v.toInt()}',
+                onChanged: (val) => setState(() => age = val),
+              ),
 
-              // Analiz Et Butonu
+              // Uyku Süresi
+              _buildSelector(
+                label: 'Uyku Süresi',
+                selectedLabel: _sleepLabel(),
+                onTap: () => _showSelector<int>(
+                  title: 'Uyku Süresi',
+                  currentValue: sleepDuration,
+                  options: [
+                    {'value': 2, 'label': '5 saatten az', 'icon': Icons.bedtime},
+                    {'value': 0, 'label': '5-6 saat', 'icon': Icons.bedtime_outlined},
+                    {'value': 1, 'label': '7-8 saat', 'icon': Icons.bed},
+                    {'value': 3, 'label': '8 saatten fazla', 'icon': Icons.king_bed},
+                    {'value': 4, 'label': 'Diğer', 'icon': Icons.more_horiz},
+                  ],
+                  onSelected: (val) => setState(() => sleepDuration = val),
+                ),
+              ),
+
+              // Beslenme
+              _buildSelector(
+                label: 'Beslenme Alışkanlığı',
+                selectedLabel: _dietLabel(),
+                onTap: () => _showSelector<int>(
+                  title: 'Beslenme Alışkanlığı',
+                  currentValue: dietaryHabits,
+                  options: [
+                    {'value': 0, 'label': 'Sağlıklı', 'icon': Icons.eco},
+                    {'value': 1, 'label': 'Orta', 'icon': Icons.balance},
+                    {'value': 3, 'label': 'Sağlıksız', 'icon': Icons.fastfood},
+                    {'value': 2, 'label': 'Diğer', 'icon': Icons.more_horiz},
+                  ],
+                  onSelected: (val) => setState(() => dietaryHabits = val),
+                ),
+              ),
+
+              // Eğitim Seviyesi
+              _buildSelector(
+                label: 'Eğitim Seviyesi',
+                selectedLabel: _degreeLabel(),
+                onTap: () => _showSelector<int>(
+                  title: 'Eğitim Seviyesi',
+                  currentValue: degree,
+                  options: [
+                    {'value': 11, 'label': 'Lise Mezunu', 'icon': Icons.school},
+                    {'value': 5, 'label': 'BA (Sanat)', 'icon': Icons.school},
+                    {'value': 6, 'label': 'BBA (İşletme)', 'icon': Icons.business},
+                    {'value': 7, 'label': 'BCA (Bilgisayar)', 'icon': Icons.computer},
+                    {'value': 4, 'label': 'B.Tech (Mühendislik)', 'icon': Icons.engineering},
+                    {'value': 8, 'label': 'BE (Mühendislik)', 'icon': Icons.engineering},
+                    {'value': 10, 'label': 'BSc (Fen Bilimleri)', 'icon': Icons.science},
+                    {'value': 1, 'label': 'B.Com (Ticaret)', 'icon': Icons.account_balance},
+                    {'value': 2, 'label': 'B.Ed (Eğitim)', 'icon': Icons.cast_for_education},
+                    {'value': 0, 'label': 'B.Arch (Mimarlık)', 'icon': Icons.architecture},
+                    {'value': 3, 'label': 'B.Pharm (Eczacılık)', 'icon': Icons.local_pharmacy},
+                    {'value': 9, 'label': 'BHM (Otelcilik)', 'icon': Icons.hotel},
+                    {'value': 12, 'label': 'LLB (Hukuk)', 'icon': Icons.gavel},
+                    {'value': 13, 'label': 'LLM (Y.L. Hukuk)', 'icon': Icons.gavel},
+                    {'value': 19, 'label': 'MBA', 'icon': Icons.business_center},
+                    {'value': 20, 'label': 'MBBS (Tıp)', 'icon': Icons.medical_services},
+                    {'value': 22, 'label': 'MD (Tıp Doktoru)', 'icon': Icons.medical_services},
+                    {'value': 27, 'label': 'PhD (Doktora)', 'icon': Icons.workspace_premium},
+                    {'value': 26, 'label': 'Diğer', 'icon': Icons.more_horiz},
+                  ],
+                  onSelected: (val) => setState(() => degree = val),
+                ),
+              ),
+
+              // İntihar Düşüncesi
+              _buildSelector(
+                label: 'İntihar Düşüncesi',
+                selectedLabel: _suicidalLabel(),
+                onTap: () => _showSelector<int>(
+                  title: 'İntihar Düşüncesi Yaşadınız mı?',
+                  currentValue: suicidalThoughts,
+                  options: [
+                    {'value': 0, 'label': 'Hayır', 'icon': Icons.check_circle_outline},
+                    {'value': 1, 'label': 'Evet', 'icon': Icons.warning_amber_outlined},
+                  ],
+                  onSelected: (val) => setState(() => suicidalThoughts = val),
+                ),
+              ),
+
+              // Akademik Baskı slider
+              _buildSliderWidget(
+                label: 'Akademik Baskı',
+                value: academicPressure,
+                min: 1,
+                max: 5,
+                divisions: 4,
+                display: (v) => '${v.toInt()}/5',
+                onChanged: (val) => setState(() => academicPressure = val),
+              ),
+
+              // CGPA slider
+              _buildSliderWidget(
+                label: 'CGPA (Not Ortalaması)',
+                value: cgpa,
+                min: 0,
+                max: 10,
+                divisions: 20,
+                display: (v) => v.toStringAsFixed(1),
+                onChanged: (val) => setState(() => cgpa = val),
+              ),
+
+              // Öğrenim Memnuniyeti slider
+              _buildSliderWidget(
+                label: 'Öğrenim Memnuniyeti',
+                value: studySatisfaction,
+                min: 1,
+                max: 5,
+                divisions: 4,
+                display: (v) => '${v.toInt()}/5',
+                onChanged: (val) => setState(() => studySatisfaction = val),
+              ),
+
+              // Çalışma saati slider
+              _buildSliderWidget(
+                label: 'Günlük Çalışma / Ders Saati',
+                value: workStudyHours,
+                min: 0,
+                max: 16,
+                divisions: 16,
+                display: (v) => '${v.toInt()} sa',
+                onChanged: (val) => setState(() => workStudyHours = val),
+              ),
+
+              // Finansal Stres slider
+              _buildSliderWidget(
+                label: 'Finansal Stres',
+                value: financialStress,
+                min: 1,
+                max: 5,
+                divisions: 4,
+                display: (v) => '${v.toInt()}/5',
+                onChanged: (val) => setState(() => financialStress = val),
+              ),
+
+              // Aile geçmişi
+              _buildSelector(
+                label: 'Ailede Ruhsal Hastalık Geçmişi',
+                selectedLabel: _familyLabel(),
+                onTap: () => _showSelector<int>(
+                  title: 'Ailede Ruhsal Hastalık Geçmişi',
+                  currentValue: familyHistory,
+                  options: [
+                    {'value': 0, 'label': 'Hayır', 'icon': Icons.check_circle_outline},
+                    {'value': 1, 'label': 'Evet', 'icon': Icons.family_restroom},
+                  ],
+                  onSelected: (val) => setState(() => familyHistory = val),
+                ),
+              ),
+
+              const SizedBox(height: 30),
+
+              // Analiz Et butonu
               Container(
                 height: 56,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.indigo, Colors.blue],
-                  ),
+                  gradient: const LinearGradient(
+                      colors: [Colors.indigo, Colors.blue]),
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
@@ -603,44 +876,39 @@ class _DepressionFormState extends State<DepressionForm>
                     backgroundColor: Colors.transparent,
                     shadowColor: Colors.transparent,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
+                        borderRadius: BorderRadius.circular(16)),
                   ),
                   onPressed: isLoading ? null : _submit,
                   child: isLoading
-                      ? Row(
+                      ? const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             SizedBox(
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
+                                  color: Colors.white, strokeWidth: 2),
                             ),
                             SizedBox(width: 12),
                             Text(
                               "Analiz Ediliyor...",
                               style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                              ),
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white),
                             ),
                           ],
                         )
-                      : Text(
+                      : const Text(
                           "Analiz Et",
                           style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                          ),
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white),
                         ),
                 ),
               ),
-              SizedBox(height: 30),
+              const SizedBox(height: 30),
             ],
           ),
         ),

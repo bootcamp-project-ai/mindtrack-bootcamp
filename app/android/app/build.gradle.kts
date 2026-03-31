@@ -1,31 +1,39 @@
-apply plugin: 'com.android.application'
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+    id("com.google.gms.google-services")
+    id("dev.flutter.flutter-gradle-plugin")
+}
 
 android {
-    compileSdkVersion 31
+    namespace = "com.example.bootcamp"
+    compileSdk = flutter.compileSdkVersion
+    ndkVersion = flutter.ndkVersion
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+
+    kotlinOptions {
+        jvmTarget = "11"
+    }
 
     defaultConfig {
-        applicationId "com.example.bootcamp"
-        minSdkVersion 21
-        targetSdkVersion 31
-        versionCode 1
-        versionName "1.0"
-        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        applicationId = "com.example.bootcamp"
+        minSdk = flutter.minSdkVersion
+        targetSdk = flutter.targetSdkVersion
+        versionCode = flutter.versionCode
+        versionName = flutter.versionName
     }
 
     buildTypes {
         release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 }
 
-dependencies {
-    implementation 'com.android.support:appcompat-v7:28.0.0'
-    implementation 'com.google.firebase:firebase-auth:21.1.0' // Firebase Auth SDK
-    implementation 'com.google.firebase:firebase-firestore:24.0.0' // Firebase Firestore SDK
-    implementation 'com.google.firebase:firebase-core:21.0.0' // Firebase Core SDK
-    implementation 'com.google.android.gms:play-services-auth:19.0.0' // Google Services SDK
+flutter {
+    source = "../.."
 }
-
-apply plugin: 'com.google.gms.google-services' // Apply the Google Services plugin

@@ -1,20 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'login_screen.dart';
-import 'depression_form_screen.dart';
-import 'chatbot_page.dart';
 
+final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.light);
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
-    options:FirebaseOptions(
-    apiKey: "AIzaSyDn3j-fsQQiuVNbkYeM9A5_VIGQJ5aQYls", 
-    appId: "1:264491457827:web:4235c7806173f7c34c0096", 
-    messagingSenderId: "264491457827", 
-    projectId: "bootcamp-228fc"),
+    options: DefaultFirebaseOptions.currentPlatform,
   );
-  runApp(MyApp());
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -22,15 +18,49 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Firebase',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: themeNotifier,
+      builder: (context, mode, _) => MaterialApp(
+        title: 'MindTrack',
+        debugShowCheckedModeBanner: false,
+        themeMode: mode,
+        theme: ThemeData(
+          brightness: Brightness.light,
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
+          scaffoldBackgroundColor: const Color(0xFFF0F4F8),
+          cardColor: Colors.white,
+          appBarTheme: const AppBarTheme(
+            backgroundColor: Colors.white,
+            elevation: 0,
+            titleTextStyle: TextStyle(
+              color: Colors.black87,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+            ),
+            iconTheme: IconThemeData(color: Colors.black87),
+          ),
+        ),
+        darkTheme: ThemeData(
+          brightness: Brightness.dark,
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: Colors.indigo,
+            brightness: Brightness.dark,
+          ),
+          scaffoldBackgroundColor: const Color(0xFF121212),
+          cardColor: const Color(0xFF1E1E2E),
+          appBarTheme: const AppBarTheme(
+            backgroundColor: Color(0xFF1E1E2E),
+            elevation: 0,
+            titleTextStyle: TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+            ),
+            iconTheme: IconThemeData(color: Colors.white),
+          ),
+        ),
+        home: const LoginScreen(),
       ),
-      home: LoginScreen(),
-      routes: {
-        '/chatbot': (context) => const ChatbotPage(), // 🔄 Burayı güncelle
-      }
     );
   }
 }

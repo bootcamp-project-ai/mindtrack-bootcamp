@@ -4,36 +4,6 @@ import 'chatbot_page.dart';
 import 'result_page.dart';
 import 'profile_page.dart';
 
-void main() {
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Ruh Sağlığı Uygulaması',
-      theme: ThemeData(
-        primarySwatch: Colors.indigo,
-        fontFamily: 'Montserrat',
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.white,
-          elevation: 0,
-          titleTextStyle: TextStyle(
-            color: Colors.black87,
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-      home: const MainPage(),
-    );
-  }
-}
-
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
 
@@ -42,34 +12,27 @@ class MainPage extends StatefulWidget {
 }
 
 class _MainPageState extends State<MainPage> {
-  int _selectedIndex = 0; // Seçili sayfa indexini tutar
+  int _selectedIndex = 0;
 
-  // Sayfalarımızı bir liste içinde tanımlıyoruz.
-  // MainPage'in state'inde kalmalı ki, BottomNavigationBar ile yönetilebilsin.
   final List<Widget> _pages = [
     const HomePageContent(),
     const ChatbotPage(),
     const ProfilePage(),
   ];
 
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
+    final cardColor = Theme.of(context).cardColor;
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F4F8),
-      body: _pages[_selectedIndex], // Seçili sayfayı gösterir
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: _pages[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Colors.white,
+        backgroundColor: cardColor,
         selectedItemColor: Colors.indigo,
         unselectedItemColor: Colors.grey,
         selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold),
         currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
+        onTap: (index) => setState(() => _selectedIndex = index),
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home_outlined),
@@ -89,7 +52,6 @@ class _MainPageState extends State<MainPage> {
   }
 }
 
-// Ana sayfa içeriğini ayrı bir widget'a taşıdım
 class HomePageContent extends StatefulWidget {
   const HomePageContent({super.key});
 
@@ -98,7 +60,6 @@ class HomePageContent extends StatefulWidget {
 }
 
 class _HomePageContentState extends State<HomePageContent> {
-  // recommendations listesini doğrudan buraya kopyaladık
   static const List<String> recommendations = [
     "Güne başlarken derin bir nefes al ve kendine iyi davran.",
     "Küçük de olsa bir hedef belirle, tamamladığında kendini takdir et.",
@@ -124,12 +85,13 @@ class _HomePageContentState extends State<HomePageContent> {
 
   @override
   Widget build(BuildContext context) {
-    final DateTime now = DateTime.now();
-    final String todayRecommendation =
+    final cardColor = Theme.of(context).cardColor;
+    final now = DateTime.now();
+    final todayRecommendation =
         recommendations[now.day % recommendations.length];
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F4F8),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Hoş Geldiniz'),
       ),
@@ -138,73 +100,56 @@ class _HomePageContentState extends State<HomePageContent> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _buildRecommendationCard(todayRecommendation),
+            _buildRecommendationCard(todayRecommendation, cardColor),
             const SizedBox(height: 24),
             _buildActionButton(
               context,
               'Anketi Yap',
               Colors.indigo,
-              () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => DepressionForm()),
-                );
-              },
+              () => Navigator.push(context,
+                  MaterialPageRoute(builder: (context) => DepressionForm())),
             ),
             const SizedBox(height: 12),
             _buildActionButton(
               context,
               'Anket Sonuçlarım',
-              Colors.indigo.withOpacity(0.1),
-              () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const ResultsPage()),
-                );
-              },
-              textColor: Colors.indigo,
+              Colors.indigo,
+              () => Navigator.push(context,
+                  MaterialPageRoute(builder: (context) => const ResultsPage())),
               isFilled: false,
             ),
             const SizedBox(height: 24),
             const Text(
               "Günlük Alışkanlık Takibi",
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             _buildHabitCard(
               title: "Su Tüketimi",
               icon: Icons.local_drink_rounded,
               value: "$waterCount bardak",
-              onTap: () {
-                setState(() {
-                  waterCount++;
-                });
-              },
+              cardColor: cardColor,
+              onTap: () => setState(() => waterCount++),
             ),
             const SizedBox(height: 16),
-            _buildWalkingCard(),
+            _buildWalkingCard(cardColor),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildRecommendationCard(String text) {
+  Widget _buildRecommendationCard(String text, Color cardColor) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardColor,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black12.withOpacity(0.08),
-            blurRadius: 15,
-            spreadRadius: 2,
-          ),
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 15,
+              spreadRadius: 2),
         ],
       ),
       child: Column(
@@ -212,20 +157,15 @@ class _HomePageContentState extends State<HomePageContent> {
           const Text(
             "Bugünün Tavsiyesi",
             style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.indigo,
-            ),
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.indigo),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
           Text(
             text,
-            style: const TextStyle(
-              fontSize: 16,
-              color: Colors.black54,
-              height: 1.5,
-            ),
+            style: const TextStyle(fontSize: 16, height: 1.5),
             textAlign: TextAlign.center,
           ),
         ],
@@ -238,7 +178,6 @@ class _HomePageContentState extends State<HomePageContent> {
     String text,
     Color color,
     VoidCallback onPressed, {
-    Color textColor = Colors.white,
     bool isFilled = true,
   }) {
     return ElevatedButton(
@@ -249,19 +188,15 @@ class _HomePageContentState extends State<HomePageContent> {
         padding: const EdgeInsets.symmetric(vertical: 18),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: isFilled
-              ? BorderSide.none
-              : BorderSide(color: color, width: 1.5),
+          side: isFilled ? BorderSide.none : BorderSide(color: color, width: 1.5),
         ),
         elevation: isFilled ? 4 : 0,
       ),
       child: Text(
         text,
         style: TextStyle(
-          fontSize: 18,
-          fontWeight: isFilled ? FontWeight.w600 : FontWeight.bold,
-          color: textColor,
-        ),
+            fontSize: 18,
+            fontWeight: isFilled ? FontWeight.w600 : FontWeight.bold),
       ),
     );
   }
@@ -270,19 +205,19 @@ class _HomePageContentState extends State<HomePageContent> {
     required String title,
     required IconData icon,
     required String value,
+    required Color cardColor,
     VoidCallback? onTap,
   }) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardColor,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black12.withOpacity(0.08),
-            blurRadius: 10,
-            spreadRadius: 1,
-          ),
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 10,
+              spreadRadius: 1),
         ],
       ),
       child: Row(
@@ -302,22 +237,11 @@ class _HomePageContentState extends State<HomePageContent> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
+                  Text(title,
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 4),
-                  Text(
-                    value,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.black54,
-                    ),
-                  ),
+                  Text(value, style: const TextStyle(fontSize: 14)),
                 ],
               ),
             ],
@@ -336,18 +260,17 @@ class _HomePageContentState extends State<HomePageContent> {
     );
   }
 
-  Widget _buildWalkingCard() {
+  Widget _buildWalkingCard(Color cardColor) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardColor,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black12.withOpacity(0.08),
-            blurRadius: 10,
-            spreadRadius: 1,
-          ),
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 10,
+              spreadRadius: 1),
         ],
       ),
       child: Column(
@@ -361,17 +284,13 @@ class _HomePageContentState extends State<HomePageContent> {
                   color: Colors.indigo.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.directions_walk, color: Colors.indigo),
+                child:
+                    const Icon(Icons.directions_walk, color: Colors.indigo),
               ),
               const SizedBox(width: 16),
-              const Text(
-                "Yürüyüş Süresi",
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
+              const Text("Yürüyüş Süresi",
+                  style:
+                      TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ],
           ),
           const SizedBox(height: 16),
@@ -384,41 +303,37 @@ class _HomePageContentState extends State<HomePageContent> {
                   style: const TextStyle(fontSize: 16),
                   decoration: InputDecoration(
                     hintText: "Dakika girin",
-                    hintStyle: const TextStyle(color: Colors.grey),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
                     ),
                     filled: true,
-                    fillColor: Colors.grey[100],
+                    fillColor:
+                        Theme.of(context).scaffoldBackgroundColor,
                   ),
                 ),
               ),
               const SizedBox(width: 12),
               ElevatedButton(
-                onPressed: () {
-                  setState(() {
-                    walkingMinutes = int.tryParse(_walkController.text) ?? 0;
-                  });
-                },
+                onPressed: () => setState(
+                    () => walkingMinutes =
+                        int.tryParse(_walkController.text) ?? 0),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.indigo,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 24, vertical: 16),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                      borderRadius: BorderRadius.circular(12)),
                   elevation: 2,
                 ),
                 child: const Text("Kaydet"),
-              )
+              ),
             ],
           ),
           const SizedBox(height: 12),
-          Text(
-            "Bugünkü yürüyüş: $walkingMinutes dk",
-            style: const TextStyle(fontSize: 14, color: Colors.black54),
-          ),
+          Text("Bugünkü yürüyüş: $walkingMinutes dk",
+              style: const TextStyle(fontSize: 14)),
         ],
       ),
     );

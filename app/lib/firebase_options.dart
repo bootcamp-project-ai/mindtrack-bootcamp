@@ -4,46 +4,29 @@ import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
 
-/// Default [FirebaseOptions] for use with your Firebase apps.
-///
-/// Example:
-/// ```dart
-/// import 'firebase_options.dart';
-/// // ...
-/// await Firebase.initializeApp(
-///   options: DefaultFirebaseOptions.currentPlatform,
-/// );
-/// ```
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      throw UnsupportedError(
-        'DefaultFirebaseOptions have not been configured for web - '
-        'you can reconfigure this by running the FlutterFire CLI again.',
-      );
+      return web;
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
         return android;
       case TargetPlatform.iOS:
         throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for ios - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
+          'DefaultFirebaseOptions have not been configured for ios.',
         );
       case TargetPlatform.macOS:
         throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for macos - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
+          'DefaultFirebaseOptions have not been configured for macos.',
         );
       case TargetPlatform.windows:
         throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for windows - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
+          'DefaultFirebaseOptions have not been configured for windows.',
         );
       case TargetPlatform.linux:
         throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for linux - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
+          'DefaultFirebaseOptions have not been configured for linux.',
         );
       default:
         throw UnsupportedError(
@@ -53,18 +36,20 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyD_I6NOxCnRsaWktIaXZRMoPu-jpm3g1ZA',
-    appId: '1:264491457827:android:0cbb7b01edf431484c0096',
-    messagingSenderId: '264491457827',
-    projectId: 'bootcamp-228fc',
-    storageBucket: 'bootcamp-228fc.firebasestorage.app',
+    apiKey: 'AIzaSyAmIzA5CLwsq3lh5iMbx9JNQfBMJUZheDo',
+    appId: '1:487788060214:android:f6298ab5adb3ae0f78c297',
+    messagingSenderId: '487788060214',
+    projectId: 'bootcamp-607ce',
+    storageBucket: 'bootcamp-607ce.firebasestorage.app',
   );
 
-    static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDn3j-fsQQiuVNbkYeM9A5_VIGQJ5aQYls',
-    appId: '1:264491457827:web:4235c7806173f7c34c0096',
-    messagingSenderId: '264491457827',
-    projectId: 'bootcamp-228fc',
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyDUTnKRFI0jzM7ZHm_dRBIKwMLuIAmF-hk',
+    appId: '1:487788060214:web:fdc8f1b1a2ee8a1878c297',
+    messagingSenderId: '487788060214',
+    projectId: 'bootcamp-607ce',
+    authDomain: 'bootcamp-607ce.firebaseapp.com',
+    storageBucket: 'bootcamp-607ce.firebasestorage.app',
+    measurementId: 'G-4MM5JZC36R',
   );
-
 }

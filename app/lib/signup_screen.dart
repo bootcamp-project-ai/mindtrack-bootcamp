@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'login_screen.dart'; // LoginScreen'e yönlendirme için import edin
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'login_screen.dart';
+import 'main_page.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({Key? key}) : super(key: key);
@@ -12,9 +15,11 @@ class SignUpScreen extends StatefulWidget {
 class _SignUpScreenState extends State<SignUpScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
 
   bool _isLoading = false;
+  bool _isGoogleLoading = false;
 
   @override
   void dispose() {
@@ -24,26 +29,46 @@ class _SignUpScreenState extends State<SignUpScreen> {
     super.dispose();
   }
 
-  // Firebase ile kullanıcı kaydı yapma
-  void signUp() async {
-    if (_passwordController.text.trim() != _confirmPasswordController.text.trim()) {
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _signUp() async {
+    if (_passwordController.text.trim() !=
+        _confirmPasswordController.text.trim()) {
       _showSnackBar('Şifreler uyuşmuyor.');
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-    });
-
+    setState(() => _isLoading = true);
     try {
-      // Firebase Authentication ile kullanıcı kaydı
-      await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      final UserCredential userCredential =
+          await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
 
+      // Kullanıcıyı Firestore'a kaydet
+      final user = userCredential.user;
+      if (user != null) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .set({
+          'uid': user.uid,
+          'email': user.email,
+          'username': user.email?.split('@')[0],
+          'profileImageUrl': null,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+
       _showSnackBar('Kayıt işlemi başarılı!');
-      // Başarılı kayıttan sonra LoginScreen'e yönlendir
       if (mounted) {
         Navigator.pushReplacement(
           context,
@@ -59,36 +84,79 @@ class _SignUpScreenState extends State<SignUpScreen> {
       } else if (e.code == 'invalid-email') {
         message = 'Geçersiz e-posta adresi.';
       } else {
-        message = 'Kayıt işlemi başarısız: ${e.message}';
+        message = 'Kayıt başarısız: ${e.message}';
       }
       _showSnackBar(message);
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+  Future<void> _signUpWithGoogle() async {
+    setState(() => _isGoogleLoading = true);
+    try {
+      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+      if (googleUser == null) {
+        setState(() => _isGoogleLoading = false);
+        return;
+      }
+
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final UserCredential userCredential =
+          await FirebaseAuth.instance.signInWithCredential(credential);
+
+      final user = userCredential.user;
+      if (user != null) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .set({
+          'uid': user.uid,
+          'email': user.email,
+          'username': user.displayName ?? user.email?.split('@')[0],
+          'profileImageUrl': user.photoURL,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+
+        if (userCredential.additionalUserInfo?.isNewUser == true) {
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .update({'createdAt': FieldValue.serverTimestamp()});
+        }
+      }
+
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const MainPage()),
+        );
+      }
+    } catch (e) {
+      _showSnackBar('Google ile kayıt başarısız: $e');
+    } finally {
+      if (mounted) setState(() => _isGoogleLoading = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F4F8), // Ana sayfadaki yumuşak arka plan rengi
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Center(
         child: SingleChildScrollView(
           child: Container(
             margin: const EdgeInsets.symmetric(horizontal: 24),
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
@@ -113,11 +181,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Uygulamaya hoş geldin! Kayıt olmak için bilgilerinizi girin.',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey[600],
-                  ),
+                  'Uygulamaya hoş geldin! Kayıt olmak için bilgilerini gir.',
+                  style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 32),
@@ -142,7 +207,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 ),
                 const SizedBox(height: 32),
                 ElevatedButton(
-                  onPressed: _isLoading ? null : signUp,
+                  onPressed: _isLoading ? null : _signUp,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.indigo,
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -153,9 +218,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   ),
                   child: _isLoading
                       ? const CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        )
+                          color: Colors.white, strokeWidth: 2)
                       : const Text(
                           'Kayıt Ol',
                           style: TextStyle(
@@ -166,17 +229,59 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         ),
                 ),
                 const SizedBox(height: 24),
+                Row(
+                  children: [
+                    const Expanded(child: Divider()),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Text(
+                        'veya',
+                        style: TextStyle(color: Colors.grey[500], fontSize: 14),
+                      ),
+                    ),
+                    const Expanded(child: Divider()),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  onPressed: _isGoogleLoading ? null : _signUpWithGoogle,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    side: BorderSide(color: Colors.grey[300]!),
+                  ),
+                  icon: _isGoogleLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Image.network(
+                          'https://www.google.com/favicon.ico',
+                          width: 22,
+                          height: 22,
+                          errorBuilder: (_, __, ___) =>
+                              const Icon(Icons.g_mobiledata, size: 24),
+                        ),
+                  label: const Text(
+                    'Google ile Kayıt Ol',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
                 GestureDetector(
-                  onTap: () {
-                    Navigator.pop(context); // Giriş sayfasına geri dön
-                  },
+                  onTap: () => Navigator.pop(context),
                   child: RichText(
                     textAlign: TextAlign.center,
                     text: TextSpan(
                       style: const TextStyle(
-                        fontSize: 16,
-                        color: Colors.black54,
-                      ),
+                          fontSize: 16, color: Colors.black54),
                       children: [
                         const TextSpan(text: 'Zaten hesabın var mı? '),
                         TextSpan(
@@ -198,7 +303,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
     );
   }
 
-  // Yeniden kullanılabilir TextField widget'ı
   Widget _buildTextField({
     required TextEditingController controller,
     required String hintText,
@@ -207,7 +311,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.grey[100],
+        color: Theme.of(context).scaffoldBackgroundColor,
         borderRadius: BorderRadius.circular(16),
       ),
       child: TextField(
